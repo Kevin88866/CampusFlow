@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "878044548983",
+    "project_id": "campusflow-d9a43",
+    "storage_bucket": "campusflow-d9a43.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878044548983:android:ff1871d9ec94fcfee51b72",
+        "android_client_info": {
+          "package_name": "com.CampusFlow.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "878044548983-o8efftfgd3vkuokkjcn2v50s38h4kgcf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.CampusFlow.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "878044548983-fgciu27al15tmued8b6o52fnji78f0nr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwcgaghJiK1c47rtGB0KO_zyP4YcqlZwA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "878044548983-fgciu27al15tmued8b6o52fnji78f0nr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

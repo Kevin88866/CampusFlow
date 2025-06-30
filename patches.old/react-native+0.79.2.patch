@@ -1,0 +1,105 @@
+diff --git a/node_modules/react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo.js b/node_modules/react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo.js
+index c42e4ac..84418a4 100644
+--- a/node_modules/react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo.js
++++ b/node_modules/react-native/Libraries/Components/AccessibilityInfo/AccessibilityInfo.js
+@@ -34,14 +34,6 @@ type AccessibilityEventDefinitionsIOS = {
+   darkerSystemColorsChanged: [boolean],
+ };
+ 
+-type AccessibilityEventDefinitions = {
+-  ...AccessibilityEventDefinitionsAndroid,
+-  ...AccessibilityEventDefinitionsIOS,
+-  change: [boolean], // screenReaderChanged
+-  reduceMotionChanged: [boolean],
+-  screenReaderChanged: [boolean],
+-};
+-
+ type AccessibilityEventTypes = 'click' | 'focus' | 'viewHoverEnter';
+ 
+ // Mapping of public event names to platform-specific event names.
+@@ -394,11 +386,7 @@ const AccessibilityInfo = {
+    *
+    * See https://reactnative.dev/docs/accessibilityinfo#addeventlistener
+    */
+-  addEventListener<K: $Keys<AccessibilityEventDefinitions>>(
+-    eventName: K,
+-    // $FlowIssue[incompatible-type] - Flow bug with unions and generics (T128099423)
+-    handler: (...$ElementType<AccessibilityEventDefinitions, K>) => void,
+-  ): EventSubscription {
++  addEventListener(eventName, handler, options) {
+     const deviceEventName = EventNames.get(eventName);
+     return deviceEventName == null
+       ? {remove(): void {}}
+diff --git a/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js b/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
+index 80e2514..6d30502 100644
+--- a/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
++++ b/node_modules/react-native/Libraries/Components/ActivityIndicator/ActivityIndicator.js
+@@ -26,39 +26,6 @@ const GRAY = '#999999';
+ 
+ type IndicatorSize = number | 'small' | 'large';
+ 
+-type ActivityIndicatorIOSProps = $ReadOnly<{
+-  /**
+-    Whether the indicator should hide when not animating.
+-
+-    @platform ios
+-  */
+-  hidesWhenStopped?: ?boolean,
+-}>;
+-export type ActivityIndicatorProps = $ReadOnly<{
+-  ...ViewProps,
+-  ...ActivityIndicatorIOSProps,
+-
+-  /**
+-   	Whether to show the indicator (`true`) or hide it (`false`).
+-   */
+-  animating?: ?boolean,
+-
+-  /**
+-    The foreground color of the spinner.
+-
+-    @default {@platform android} `null` (system accent default color)
+-    @default {@platform ios} '#999999'
+-  */
+-  color?: ?ColorValue,
+-
+-  /**
+-    Size of the indicator.
+-
+-    @type enum(`'small'`, `'large'`)
+-    @type {@platform android} number
+-  */
+-  size?: ?IndicatorSize,
+-}>;
+ 
+ const ActivityIndicator = (
+   {
+@@ -153,10 +120,7 @@ const ActivityIndicator = (
+ ```
+ */
+ 
+-const ActivityIndicatorWithRef: component(
+-  ref?: React.RefSetter<HostComponent<empty>>,
+-  ...props: ActivityIndicatorProps
+-) = React.forwardRef(ActivityIndicator);
++const ActivityIndicatorWithRef = React.forwardRef(ActivityIndicator);
+ ActivityIndicatorWithRef.displayName = 'ActivityIndicator';
+ 
+ const styles = StyleSheet.create({
+diff --git a/node_modules/react-native/Libraries/Core/registerCallableModule.js b/node_modules/react-native/Libraries/Core/registerCallableModule.js
+index 0a0951c..419eca9 100644
+--- a/node_modules/react-native/Libraries/Core/registerCallableModule.js
++++ b/node_modules/react-native/Libraries/Core/registerCallableModule.js
+@@ -10,12 +10,6 @@
+ 
+ 'use strict';
+ 
+-type Module = {...};
+-type RegisterCallableModule = (
+-  name: string,
+-  moduleOrFactory: Module | (void => Module),
+-) => void;
+-
+ const registerCallableModule: RegisterCallableModule = (function () {
+   if (global.RN$Bridgeless === true) {
+     return (name, moduleOrFactory) => {
