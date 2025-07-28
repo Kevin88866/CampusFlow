@@ -8,7 +8,8 @@ GoogleSignin.configure({
   webClientId: '878044548983-fgciu27al15tmued8b6o52fnji78f0nr.apps.googleusercontent.com',
   offlineAccess: true,
 });
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 export default function LoginScreen() {
   const navi = useNavigation();
