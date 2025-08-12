@@ -5,9 +5,13 @@ cd CampusFlow
 createdb campusflow_poc
 psql campusflow_poc < backend/schema.sql
 cp .env.example .env
-# Edit .env and Backend_url in the screens 
+docker run --name campusflow-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=campusflow -p 5432:5432 -d postgres:16
+# Edit .env and Backend_url in the screens
 # Run
 npm install
 node server.js
-if you want to test, you can type npm test
 npx react-native run android
+# release APK
+cd android
+./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
