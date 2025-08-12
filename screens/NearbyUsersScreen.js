@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import Geolocation from '@react-native-community/geolocation';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 function getCurrentPosition() {
   return new Promise((resolve, reject) => {

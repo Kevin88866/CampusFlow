@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useContext } from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Platform, PermissionsAndroid } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
 import { TimerContext } from '../TimerContext';
+
+function getDistance(lat1, lon1, lat2, lon2) {
+  const toRad = v => (v * Math.PI) / 180;
+  const R = 6371000; // Earth radius in meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export default function PomodoroScreen({ route }) {
   const { user_id } = route.params;
@@ -10,18 +24,29 @@ export default function PomodoroScreen({ route }) {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [phase, setPhase] = useState('work');
   const [running, setRunning] = useState(false);
+  const [areaCenter, setAreaCenter] = useState(null);
+  const [watchId, setWatchId] = useState(null);
+  const threshold = 50;
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+    }
+  }, []);
 
   useEffect(() => {
     let timerId;
     if (running && secondsLeft > 0) {
       timerId = setInterval(() => setSecondsLeft(s => s - 1), 1000);
     } else if (running && secondsLeft === 0) {
+      Alert.alert(
+        phase === 'work' ? 'Work done!' : 'Break over!',
+        phase === 'work' ? 'Time for a break.' : 'Ready for next round?'
+      );
       if (phase === 'work') {
-        Alert.alert('Work done!', 'Time for a break.');
         setPhase('break');
         setSecondsLeft(Number(breakMin) * 60);
       } else {
-        Alert.alert('Break over!', 'Ready for next round?');
         setPhase('work');
         setSecondsLeft(Number(workMin) * 60);
       }
@@ -29,19 +54,56 @@ export default function PomodoroScreen({ route }) {
     return () => clearInterval(timerId);
   }, [running, secondsLeft]);
 
+  const startWatch = center => {
+    const id = Geolocation.watchPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        const dist = getDistance(center.latitude, center.longitude, latitude, longitude);
+        if (dist > threshold) {
+          Alert.alert('Moved Away', 'You have left the study area. Pomodoro stopped.');
+          stopPomodoro();
+        }
+      },
+      err => console.warn('Watch error', err),
+      { enableHighAccuracy: true, distanceFilter: 5 }
+    );
+    setWatchId(id);
+  };
+
+  const clearWatch = () => {
+    if (watchId != null) {
+      Geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
+  };
+
   const start = () => {
     const w = Number(workMin);
     const b = Number(breakMin);
-    if (isNaN(w) || w <= 0 || isNaN(b) || b <= 0) return Alert.alert('Invalid Input', 'Please enter positive numbers.');
+    if (isNaN(w) || w <= 0 || isNaN(b) || b <= 0) {
+      return Alert.alert('Invalid Input', 'Please enter positive numbers.');
+    }
+    Geolocation.getCurrentPosition(
+      pos => {
+        const center = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setAreaCenter(center);
+        startWatch(center);
+      },
+      err => Alert.alert('Location Error', err.message),
+      { enableHighAccuracy: true }
+    );
     setPhase('work');
     setSecondsLeft(w * 60);
     setRunning(true);
     setPomodoroRunning(true);
   };
+
   const stopPomodoro = () => {
     setRunning(false);
     setPomodoroRunning(false);
+    clearWatch();
   };
+
   const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const secs = String(secondsLeft % 60).padStart(2, '0');
 
@@ -64,7 +126,7 @@ export default function PomodoroScreen({ route }) {
           onChangeText={setBreakMin}
         />
       </View>
-      <Text style={styles.timer}>{mins}:{secs}</Text>
+      <Text testID="timer" style={styles.timer}>{mins}:{secs}</Text>
       <TouchableOpacity
         style={[styles.btn, running ? styles.stopBtn : styles.startBtn]}
         onPress={running ? stopPomodoro : start}

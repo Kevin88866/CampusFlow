@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, FlatList, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 export default function ChatListScreen() {
   const navi = useNavigation();

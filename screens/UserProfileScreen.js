@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 export default function UserProfileScreen() {
   const route = useRoute();

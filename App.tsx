@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { TimerProvider } from './TimerContext';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import MapScreen from './screens/MapScreen';
 import SurveyScreen from './screens/SurveyScreen';
 import PomodoroScreen from './screens/PomodoroScreen';
@@ -17,6 +18,7 @@ import ChatListScreen from './screens/ChatListScreen';
 import { TermsOfServiceScreen } from './screens/TermsOfServiceScreen';
 import { PrivacyPolicyScreen } from './screens/PrivacyPolicyScreen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import RankingScreen from './screens/RankingScreen';
 
 export type TabParamList = {
   Map: { user_id: number };
@@ -29,11 +31,13 @@ export type TabParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
   MainTabs: { user_id: number; username: string; coins: number };
   Chat: { user_id: number; peer_id: number; peerName: string };
   UserProfile: { user_id: number; userId: number; name?: string };
   TermsOfService: undefined;
   PrivacyPolicy: undefined;
+  Ranking: { user_id: number };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -90,16 +94,12 @@ function MainTabs({ route }: { route: RouteProp<RootStackParamList, 'MainTabs'> 
           }
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#6C63FF",
-        tabBarInactiveTintColor: "gray",
+        tabBarActiveTintColor: '#6C63FF',
+        tabBarInactiveTintColor: 'gray',
       })}
     >
       <Tab.Screen name="Map" component={MapScreen} initialParams={{ user_id }} />
-      <Tab.Screen
-        name="Survey"
-        component={SurveyScreen}
-        initialParams={{ user_id, username }}
-      />
+      <Tab.Screen name="Survey" component={SurveyScreen} initialParams={{ user_id, username }} />
       <Tab.Screen name="Pomodoro" component={PomodoroScreen} initialParams={{ user_id }} />
       <Tab.Screen name="Buddies" component={BuddiesNavigator} initialParams={{ user_id }} />
       <Tab.Screen name="Profile" component={ProfileScreen} initialParams={{ user_id }} />
@@ -115,33 +115,13 @@ export default function App() {
           <Stack.Navigator screenOptions={{ headerTitleAlign: 'center' }}>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen
-              name="MainTabs"
-              component={MainTabs}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Chat"
-              component={ChatScreen}
-              options={({ route }: { route: RouteProp<RootStackParamList, 'Chat'> }) => ({
-                title: route.params.peerName,
-              })}
-            />
-            <Stack.Screen
-              name="UserProfile"
-              component={UserProfileScreen}
-              options={{ title: 'User Profile' }}
-            />
-            <Stack.Screen
-              name="TermsOfService"
-              component={TermsOfServiceScreen}
-              options={{ title: 'Terms of Service' }}
-            />
-            <Stack.Screen
-              name="PrivacyPolicy"
-              component={PrivacyPolicyScreen}
-              options={{ title: 'Privacy Policy' }}
-            />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
+            <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+            <Stack.Screen name="Chat" component={ChatScreen} options={({ route }: { route: RouteProp<RootStackParamList, 'Chat'> }) => ({ title: route.params.peerName })} />
+            <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: 'User Profile' }} />
+            <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} options={{ title: 'Terms of Service' }} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+            <Stack.Screen name="Ranking" component={RankingScreen} options={{ title: 'Ranking' }} />
           </Stack.Navigator>
         </NavigationContainer>
       </TimerProvider>

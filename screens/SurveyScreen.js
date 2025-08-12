@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, PermissionsAndroid, Platform } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Geolocation from '@react-native-community/geolocation';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
+
 const OPTIONS = [
   { label: 'Very Crowded (>75%)', value: 'Very Crowded (>75%)' },
   { label: 'Crowded (>50%)', value: 'Crowded (>50%)' },
@@ -10,7 +12,7 @@ const OPTIONS = [
   { label: 'Sparse (>0%)', value: 'Sparse (>0%)' },
 ];
 
-export default function SurveyScreen({ route }) {
+export default function SurveyScreen({ route, navigation }) {
   const { user_id, username } = route.params;
   const [loc, setLoc] = useState(null);
   const [level, setLevel] = useState(OPTIONS[0].value);
@@ -77,6 +79,13 @@ export default function SurveyScreen({ route }) {
       </TouchableOpacity>
 
       {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+
+      <TouchableOpacity
+        style={[styles.btn, { marginTop: 12 }]}
+        onPress={() => navigation.navigate('Ranking', { user_id })}
+      >
+        <Text style={styles.btnText}>View Ranking</Text>
+      </TouchableOpacity>
     </View>
   );
 }

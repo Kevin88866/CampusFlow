@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, Platform, PermissionsAndroid, Alert, ActivityIn
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import { useIsFocused } from '@react-navigation/native';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 const radius = 0.01;
 
 export default function MapScreen() {

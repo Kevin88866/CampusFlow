@@ -3,7 +3,8 @@ import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'rea
 import { GiftedChat, Avatar, Bubble } from 'react-native-gifted-chat';
 import io from 'socket.io-client';
 import { useRoute, useNavigation } from '@react-navigation/native';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 export default function ChatScreen() {
   const route = useRoute();

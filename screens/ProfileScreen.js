@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
-const back = 'http://192.168.78.188:3000';
+import { API_BASE_URL } from '../config'
+const back = API_BASE_URL
 
 export default function ProfileScreen({ route, navigation }) {
   const { user_id } = route.params;
@@ -12,6 +13,8 @@ export default function ProfileScreen({ route, navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [interest, setInterest] = useState('');
+
   const loadUser = () => {
     setLoading(true);
     fetch(`${back}/users/${user_id}`)
@@ -22,14 +25,13 @@ export default function ProfileScreen({ route, navigation }) {
         setName(json.name || json.username || '');
         setEmail(json.email || '');
         setPhone(json.phone || '');
+        setInterest(json.interest || '');
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    loadUser();
-  }, [user_id]);
+  useEffect(() => { loadUser(); }, [user_id]);
 
   function logout() {
     Alert.alert(
@@ -37,13 +39,9 @@ export default function ProfileScreen({ route, navigation }) {
       'Are you sure you want to log out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: () => {
-            navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-          },
-        },
+        { text: 'Log Out', style: 'destructive', onPress: () => {
+          navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+        }}
       ]
     );
   }
@@ -53,7 +51,7 @@ export default function ProfileScreen({ route, navigation }) {
     fetch(`${back}/users/${user_id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone }),
+      body: JSON.stringify({ name, email, phone, interest }),
     })
       .then(res => {
         if (!res.ok) throw new Error(`Save failed: ${res.status}`);
@@ -70,18 +68,14 @@ export default function ProfileScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={'#6C63FF'} />
-      </View>
+      <View style={styles.center}><ActivityIndicator size="large" color={'#6C63FF'} /></View>
     );
   }
   if (error) {
     return (
       <View style={styles.center}>
         <Text style={styles.error}>Error: {error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={loadUser}>
-          <Text style={styles.btnText}>Retry</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={styles.btn} onPress={loadUser}><Text style={styles.btnText}>Retry</Text></TouchableOpacity>
       </View>
     );
   }
@@ -92,41 +86,36 @@ export default function ProfileScreen({ route, navigation }) {
       <View style={styles.field}>
         <Text style={styles.label}>Username:</Text>
         {isEditing ? (
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-          />
+          <TextInput style={styles.input} value={name} onChangeText={setName} />
         ) : (
-          <Text style={styles.value}>{user.name || user.username}</Text>
+          <Text style={styles.value}>{user.name}</Text>
         )}
       </View>
 
       <View style={styles.field}>
         <Text style={styles.label}>Email:</Text>
         {isEditing ? (
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-          />
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} keyboardType="email-address" />
         ) : (
-          <Text style={styles.value}>{user.email || 'N/A'}</Text>
+          <Text style={styles.value}>{user.email}</Text>
         )}
       </View>
 
       <View style={styles.field}>
         <Text style={styles.label}>Phone:</Text>
         {isEditing ? (
-          <TextInput
-            style={styles.input}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-          />
+          <TextInput style={styles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         ) : (
-          <Text style={styles.value}>{user.phone || 'N/A'}</Text>
+          <Text style={styles.value}>{user.phone}</Text>
+        )}
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Interests:</Text>
+        {isEditing ? (
+          <TextInput style={styles.input} value={interest} onChangeText={setInterest} placeholder="e.g. basketball" />
+        ) : (
+          <Text style={styles.value}>{user.interest || 'N/A'}</Text>
         )}
       </View>
 
@@ -137,20 +126,14 @@ export default function ProfileScreen({ route, navigation }) {
 
       <View style={styles.buttonRow}>
         {isEditing ? (
-          <TouchableOpacity style={styles.btn} onPress={save}>
-            <Text style={styles.btnText}>Save</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.btn} onPress={save}><Text style={styles.btnText}>Save</Text></TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.btn} onPress={() => setIsEditing(true)}>
-            <Text style={styles.btnText}>Edit Profile</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.btn} onPress={() => setIsEditing(true)}><Text style={styles.btnText}>Edit Profile</Text></TouchableOpacity>
         )}
-        <TouchableOpacity style={[styles.btn, styles.logoutBtn]} onPress={logout}>
-          <Text style={styles.btnText}>Logout</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={[styles.btn, styles.logoutBtn]} onPress={logout}><Text style={styles.btnText}>Logout</Text></TouchableOpacity>
       </View>
     </ScrollView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
