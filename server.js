@@ -7,12 +7,59 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
 const { OAuth2Client } = require('google-auth-library');
-const { Server } = require('socket.io'); 
-const nodemailer = require('nodemailer');
+const { Server } = require('socket.io');
 const WEB_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const googleClient = new OAuth2Client(WEB_CLIENT_ID);
 const app = express();
 const server = http.createServer(app);
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
+const uploadsDir = path.join(__dirname, 'uploads', 'avatars');
+fs.mkdirSync(uploadsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, uploadsDir),
+  filename: (_, file, cb) => cb(null, `u_${Date.now()}${path.extname(file.originalname || '.jpg')}`)
+});
+
+const upload = multer({ storage });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
+const io = new Server(server, { cors: { origin: '*', methods: ['GET','POST'] } });
+
+io.use((socket, next) => {
+  const userId = parseInt(socket.handshake.query.userId, 10);
+  if (!userId) return next(new Error('Missing userId'));
+  socket.userId = userId;
+  socket.join(`user:${userId}`);
+  next();
+});
+
+io.on('connection', (socket) => {
+  socket.on('private_message', async ({ toUserId, content }) => {
+    try {
+      if (!toUserId || !content) return;
+      const ins = await pool.query(
+        'INSERT INTO messages (sender_id, receiver_id, content, sent_at) VALUES ($1,$2,$3,NOW()) RETURNING id, sent_at',
+        [socket.userId, toUserId, content]
+      );
+      const payload = {
+        id: ins.rows[0].id,
+        fromUserId: socket.userId,
+        toUserId,
+        content,
+        sentAt: ins.rows[0].sent_at
+      };
+      io.to(`user:${toUserId}`).emit('private_message', payload);
+    } catch (e) {
+      console.error('private_message error', e);
+    }
+  });
+});
+
 app.use(cors());
 app.use(bodyParser.json());
 const pool = new Pool({connectionString: process.env.DATABASE_URL || 'postgresql://localhost/campusflow_poc'});
@@ -24,14 +71,12 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT, 10),
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  port: Number(process.env.EMAIL_PORT || 465),
+  secure: process.env.EMAIL_SECURE === 'true' || Number(process.env.EMAIL_PORT) === 465,
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
 // send OTP
@@ -39,16 +84,16 @@ app.post('/send-register-otp', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Missing email' });
 
-  const code    = generateOTP();
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expires = Date.now() + 5 * 60 * 1000;
   otpStore[`register_${email}`] = { code, expires };
 
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: email,
-      subject: 'Your CampusFlow Password Reset Code',
-      text: `Your password reset code is ${code}. It will expire in 5 minutes.`,
+      subject: 'Your CampusFlow Register Code',
+      text: `Your registration code is ${code}. It will expire in 5 minutes.`
     });
     res.json({ success: true });
   } catch (e) {
@@ -56,6 +101,7 @@ app.post('/send-register-otp', async (req, res) => {
     res.status(500).json({ error: 'Failed to send email' });
   }
 });
+
 
 // check OTP and register user
 app.post('/register', async (req, res) => {
@@ -128,22 +174,19 @@ app.post('/reset-password', async (req, res) => {
 
 // Local login, compare with database
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Missing username or password' });
+  const { identifier, password } = req.body;
+  if (!identifier || !password) return res.status(400).json({ error: 'Missing identifier or password' });
   try {
     const result = await pool.query(
-      'SELECT id, username, password_hash, coins FROM users WHERE username=$1',
-      [username]
+      'SELECT id, username, email, password_hash, coins FROM users WHERE username=$1 OR email=$1 LIMIT 1',
+      [identifier]
     );
     const user = result.rows[0];
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
     res.json({ id: user.id, username: user.username, coins: user.coins });
-  } catch (e) {
-    console.error('Error in /login:', e);
-    res.status(500).json({ error: 'Database error' });
-  }
+  } catch (e) { res.status(500).json({ error: 'Database error' }); }
 });
 
 // Google login
@@ -210,60 +253,63 @@ app.get('/conversations/:user_id', async (req, res) => {
 
 // Submit survey
 app.post('/survey', async (req, res) => {
-  const { user_id: uid, latitude, longitude, occupancy_level } = req.body;
+  const { user_id: uid, latitude, longitude, occupancy_level } = req.body
   const validLevels = [
     'Very Crowded (>75%)',
     'Crowded (>50%)',
     'Moderate (>25%)',
     'Sparse (>0%)'
-  ];
+  ]
+
   if (!uid || latitude == null || longitude == null || !validLevels.includes(occupancy_level)) {
-    return res.status(400).json({ error: 'Invalid data' });
+    return res.status(400).json({ error: 'Invalid data' })
   }
+
   try {
     const lastRes = await pool.query(
       'SELECT submitted_at FROM surveys WHERE user_id = $1 ORDER BY submitted_at DESC LIMIT 1',
       [uid]
-    );
-    const lastTime = new Date(lastRes.rows[0].submitted_at).getTime();
-    const diff = Date.now() - lastTime;
-    console.log('debug lastTime:', lastTime, 'diff(ms):', diff);
+    )
+
     if (lastRes.rows.length > 0) {
-      //const lastTime = new Date(lastRes.rows[0].submitted_at).getTime();
+      const lastTime = new Date(lastRes.rows[0].submitted_at).getTime()
       if (Date.now() - lastTime < 30 * 60 * 1000) {
         return res
           .status(429)
-          .json({ error: 'You can only submit once every 30 minutes. Please try again later.' });
+          .json({ error: 'You can only submit once every 30 minutes. Please try again later.' })
       }
     }
-    const areaId = computeAreaId(latitude, longitude);
-    const clientDb = await pool.connect();
+
+    const areaId = computeAreaId(latitude, longitude)
+    const clientDb = await pool.connect()
+
     try {
-      await clientDb.query('BEGIN');
+      await clientDb.query('BEGIN')
       await clientDb.query(
         'INSERT INTO surveys (user_id, latitude, longitude, occupancy_level, submitted_at) VALUES ($1, $2, $3, $4, NOW())',
         [uid, latitude, longitude, occupancy_level]
-      );
+      )
       await clientDb.query(
         'INSERT INTO user_habits (user_id, area_id) VALUES ($1, $2)',
         [uid, areaId]
-      );
+      )
       const upd = await clientDb.query(
         'UPDATE users SET coins = coins + 1 WHERE id = $1 RETURNING coins',
         [uid]
-      );
-      await clientDb.query('COMMIT');
-      res.json({ success: true, newCoins: upd.rows[0].coins });
+      )
+      await clientDb.query('COMMIT')
+      return res.status(200).json({ success: true, newCoins: upd.rows[0].coins })
     } catch (e) {
-      await clientDb.query('ROLLBACK');
-      res.status(500).json({ error: 'Database error' });
+      await clientDb.query('ROLLBACK')
+      return res.status(500).json({ error: 'Database error' })
     } finally {
-      clientDb.release();
+      clientDb.release()
     }
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: 'Server error' })
   }
-});
+})
+
 
 // Occupancy, can make a survey to make the algorithm more accurate
 // use score to calculate the occupancy level, base on time, surveys, users in the region.
@@ -362,18 +408,27 @@ app.post('/pomodoro/complete', async (req, res) => {
 app.get('/users/nearby', async (req, res) => {
   try {
     const { lat, lon } = req.query;
-    if (!lat||!lon) return res.status(400).json({ error: 'Missing lat or lon' });
+    if (!lat || !lon) return res.status(400).json({ error: 'Missing lat or lon' });
     const areaId = `${parseFloat(lat).toFixed(2)},${parseFloat(lon).toFixed(2)}`;
-    const usersRes = await pool.query(
-      'SELECT u.id, u.username AS name, u.phone, \'\' AS "avatarUrl", MAX(s.id)::text AS "lastSeen" FROM users u JOIN surveys s ON u.id=s.user_id AND (round(s.latitude::numeric,2)||\',\'||round(s.longitude::numeric,2))=$1 GROUP BY u.id,u.username,u.phone ORDER BY MAX(s.id) DESC LIMIT 50',
+    const result = await pool.query(
+      `SELECT u.id, u.username AS name, u.phone, u.avatarurl AS "avatarUrl", MAX(s.submitted_at) AS lastSeen
+       FROM users u
+       JOIN surveys s ON u.id = s.user_id
+       WHERE (round(s.latitude::numeric,2)||','||round(s.longitude::numeric,2)) = $1
+       GROUP BY u.id, u.username, u.phone, u.avatarurl
+       ORDER BY MAX(s.submitted_at) DESC
+       LIMIT 50`,
       [areaId]
     );
-    res.json(usersRes.rows);
+    res.json(result.rows);
   } catch (e) {
-    console.error('Error in /users/nearby:', e);
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+
+
+
 
 // User profile and recent surveys
 app.get('/users/:id', async (req, res) => {
@@ -381,22 +436,20 @@ app.get('/users/:id', async (req, res) => {
     const uid = parseInt(req.params.id, 10);
     if (isNaN(uid)) return res.status(400).json({ error: 'Invalid user id' });
     const userRes = await pool.query(
-      'SELECT id, username AS name, email, coins, phone, interest FROM users WHERE id=$1',
+      'SELECT id, username AS name, email, coins, phone, interest, avatarurl AS "avatarUrl" FROM users WHERE id=$1',
       [uid]
     );
     if (!userRes.rows.length) return res.status(404).json({ error: 'User not found' });
-    const user = userRes.rows[0];
-    const surveysRes = await pool.query(
-      "SELECT occupancy_level, to_char(submitted_at,'YYYY-MM-DD HH24:MI') AS timestamp FROM surveys WHERE user_id=$1 ORDER BY submitted_at DESC LIMIT 10",
-      [uid]
-    );
-    user.recentSurveys = surveysRes.rows;
-    res.json(user);
+    res.json(userRes.rows[0]);
   } catch (e) {
-    console.error('Error in /users/:id', e);
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+
+
+
+
 
 // Messages history
 app.get('/messages/:withUserId', async (req, res) => {
@@ -415,28 +468,34 @@ app.get('/messages/:withUserId', async (req, res) => {
   }
 });
 
-app.put('/users/:id', async (req, res) => {
+app.put('/users/:id', upload.single('avatar'), async (req, res) => {
   const uid = parseInt(req.params.id, 10);
-  const { name, email, phone, interest } = req.body;
   if (isNaN(uid)) return res.status(400).json({ error: 'Invalid user id' });
+  let { name, email, phone, interest } = req.body;
+  let avatarUrl = null;
+  if (req.file) {
+    avatarUrl = `/uploads/avatars/${req.file.filename}`;
+  }
   try {
     const result = await pool.query(
       `UPDATE users SET
-         username = $2,
-         email = $3,
-         phone = $4,
-         interest = $5
+         username = COALESCE($2, username),
+         email    = COALESCE($3, email),
+         phone    = COALESCE($4, phone),
+         interest = COALESCE($5, interest),
+         avatarurl= COALESCE($6, avatarurl)
        WHERE id = $1
-       RETURNING id, username AS name, email, phone, coins, interest`,
-      [uid, name, email, phone, interest]
+       RETURNING id, username AS name, email, phone, coins, interest, avatarurl AS "avatarUrl"`,
+      [uid, name, email, phone, interest, avatarUrl]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    if (!result.rows.length) return res.status(404).json({ error: 'User not found' });
     res.json(result.rows[0]);
-  } catch (err) {
-    console.error('Error in PUT /users/:id', err);
+  } catch (e) {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+
 
 app.get('/ranking', async (req, res) => {
   try {
@@ -449,4 +508,7 @@ app.get('/ranking', async (req, res) => {
 });
 
 // Start server
-server.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+if (require.main === module) {
+  server.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+}
+module.exports = app

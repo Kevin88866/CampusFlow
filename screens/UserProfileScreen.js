@@ -1,25 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import { API_BASE_URL } from '../config'
-const back = API_BASE_URL
+import { API_BASE_URL, AVATAR_PLACEHOLDER, toImageUrl } from '../config';
 
 export default function UserProfileScreen() {
-  const route = useRoute();
-  const navi = useNavigation();
-  const { userId, user_id } = route.params || {};
+  const { userId, user_id } = useRoute().params || {};
   const uid = userId || user_id;
+  const navigation = useNavigation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const fetch = async () => {
+
+  const loadUser = async () => {
     try {
-      const resp = await fetch(`${back}/users/${uid}`);
+      const resp = await fetch(`${API_BASE_URL}/users/${uid}`);
       if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
       const data = await resp.json();
       setUser(data);
     } catch (err) {
-      console.error('Failed to fetch user:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -27,40 +25,33 @@ export default function UserProfileScreen() {
   };
 
   useEffect(() => {
-    if (!uid) {
-      setError('No user ID provided');
-      setLoading(false);
-      return;
-    }
-    fetch();
+    if (!uid) { setError('No user ID provided'); setLoading(false); }
+    else loadUser();
   }, [uid]);
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={'#6C63FF'} />
-      </View>
-    );
-  }
-  if (error) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => navi.goBack()}>
-          <Text style={styles.btnText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (loading) return <View style={styles.centered}><ActivityIndicator size="large" color="#6C63FF" /></View>;
+
+  if (error) return (
+    <View style={styles.centered}>
+      <Text style={styles.error}>{error}</Text>
+      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
+        <Text style={styles.btnText}>Go Back</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (!user) return null;
+
+  const avatarUri = toImageUrl(user.avatarUrl);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {user.avatarUrl && (
-        <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-      )}
+      <Image source={avatarUri ? { uri: avatarUri } : AVATAR_PLACEHOLDER} style={styles.avatar} />
       <Text style={styles.username}>{user.name}</Text>
+      <Text style={styles.info}>{user.email || 'No email provided'}</Text>
       <Text style={styles.info}>{user.phone || 'No phone number provided'}</Text>
       <Text style={styles.info}>Coins: {user.coins}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navi.goBack()}>
+      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
         <Text style={styles.btnText}>Back</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -75,5 +66,5 @@ const styles = StyleSheet.create({
   info: { fontSize: 16, color: 'gray', marginBottom: 8 },
   error: { color: 'red', marginBottom: 12, textAlign: 'center' },
   btn: { backgroundColor: '#6C63FF', borderRadius: 24, height: 48, paddingHorizontal: 32, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: '500' },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '500' }
 });

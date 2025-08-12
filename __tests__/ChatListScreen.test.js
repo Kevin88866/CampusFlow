@@ -11,7 +11,7 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({ navigate: mockNavigate, setOptions: jest.fn() }),
     useRoute: () => ({ params: { user_id: 1 } }),
   }
-})
+});
 
 describe('ChatListScreen', () => {
   beforeEach(() => {

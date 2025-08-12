@@ -5,33 +5,37 @@ import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 describe('ForgotPasswordScreen', () => {
   beforeEach(() => {
     global.fetch = jest.fn();
-  });
+  })
 
   it('resets password and navigates', async () => {
     fetch
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
 
-    const navigation = { replace: jest.fn() };
+    const navigation = { reset: jest.fn(), replace: jest.fn(), navigate: jest.fn() };
     const { getByPlaceholderText, getByText } = render(
       <ForgotPasswordScreen navigation={navigation} />
-    );
+    )
 
     fireEvent.changeText(getByPlaceholderText('Email'), 'a@b.com');
-    fireEvent.press(getByText('Send Verification Code'));
-    await waitFor(() => getByPlaceholderText('Verification Code'));
+    fireEvent.press(getByText('Send Code'));
 
-    fireEvent.changeText(getByPlaceholderText('Verification Code'), '0000');
-    fireEvent.changeText(getByPlaceholderText('New Password'), 'newpass');
-    fireEvent.changeText(getByPlaceholderText('Confirm Password'), 'newpass');
+    await waitFor(() => getByPlaceholderText('Code'));
+
+    fireEvent.changeText(getByPlaceholderText('Code'), '123456');
+    fireEvent.changeText(getByPlaceholderText('New Password'), 'newpass1');
+    fireEvent.changeText(getByPlaceholderText('Confirm Password'), 'newpass1');
     fireEvent.press(getByText('Reset Password'));
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
+      expect(fetch).toHaveBeenNthCalledWith(
+        2,
         expect.stringContaining('/reset-password'),
         expect.objectContaining({ method: 'POST' })
-      );
-      expect(navigation.replace).toHaveBeenCalledWith('Login');
-    });
-  });
-});
+      )
+      expect(navigation.reset).toHaveBeenCalledWith(
+        expect.objectContaining({ routes: [ { name: 'Login' } ] })
+      )
+    })
+  })
+})

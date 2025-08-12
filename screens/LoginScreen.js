@@ -1,55 +1,56 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert} from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useNavigation } from '@react-navigation/native';
+import { API_BASE_URL } from '../config';
+import { startLocationPrefetch } from '../location';
+
 GoogleSignin.configure({
   scopes: ['email', 'profile'],
   webClientId: '878044548983-fgciu27al15tmued8b6o52fnji78f0nr.apps.googleusercontent.com',
   offlineAccess: true,
 });
-import { API_BASE_URL } from '../config'
-const back = API_BASE_URL
 
 export default function LoginScreen() {
-  const navi = useNavigation();
-  const [email, setEmail] = useState('');
+  const navigation = useNavigation();
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
-    if (!email || !password) return Alert.alert('Error', 'Please enter email and password');
+    if (!account || !password) return Alert.alert('Error', 'Please enter account and password');
+    setLoading(true);
     try {
-      const resp = await fetch(`${back}/login`, {
+      const resp = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, password }),
+        body: JSON.stringify({ identifier: account, password }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || 'Login failed');
-      navi.reset({ index: 0, routes: [{ name: 'MainTabs', params: { user_id: data.id } }] });
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { user_id: data.id } }] });
     } catch (err) {
       Alert.alert('Login Error', err.message);
+    } finally {
+      setLoading(false);
     }
   };
   const GoogleLogin = async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       await GoogleSignin.signOut();
-      const userInfo = await GoogleSignin.signIn();//make sure user is signed in, solve problem of gettokens
+      const userInfo = await GoogleSignin.signIn();
       const { idToken } = await GoogleSignin.getTokens();
       if (!idToken) throw new Error('Failed to obtain ID token');
-      const resp = await fetch(`${back}/google-login`, {
+      const resp = await fetch(`${API_BASE_URL}/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: idToken }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || 'Google login failed');
-      navi.reset({
-        index: 0,
-        routes: [{ name: 'MainTabs', params: { user_id: data.id } }],
-      });
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { user_id: data.id } }] });
     } catch (err) {
-      console.log('>>> Google login err:', err);
       if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         Alert.alert('Error', 'Google Play Services not available');
       } else {
@@ -57,24 +58,22 @@ export default function LoginScreen() {
       }
     }
   };
-
+  useEffect(() => { startLocationPrefetch(); }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login to CampusFlow</Text>
-
       <View style={styles.inputWrapper}>
         <Icon name="email-outline" size={20} color="#666" style={styles.icon} />
         <TextInput
           style={styles.input}
           placeholder="Account"
-          keyboardType="email-address"
+          keyboardType="Email or Username"
           autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
+          value={account}
+          onChangeText={setAccount}
         />
       </View>
-
       <View style={styles.inputWrapper}>
         <Icon name="lock-outline" size={20} color="#666" style={styles.icon} />
         <TextInput
@@ -86,33 +85,29 @@ export default function LoginScreen() {
           onChangeText={setPassword}
         />
       </View>
-
-      <TouchableOpacity style={styles.forgotBtn} onPress={() => navi.navigate('ForgotPassword')}>
+      <TouchableOpacity style={styles.forgotBtn} onPress={() => navigation.navigate('ForgotPassword')}>
         <Text style={styles.forgotText}>Forgot Password?</Text>
       </TouchableOpacity>
-
-      <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
-        <Text style={styles.loginBtnText}>Login</Text>
+      <TouchableOpacity
+        style={[styles.loginBtn, loading && { opacity: 0.6 }]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.loginBtnText}>Login</Text>}
       </TouchableOpacity>
-
       <View style={styles.signupContainer}>
         <Text style={styles.signupText}>Don't have an account? </Text>
-        <TouchableOpacity onPress={() => navi.navigate('Register')}>
+        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
           <Text style={styles.signupLink}>Sign Up</Text>
         </TouchableOpacity>
       </View>
-
       <View style={styles.orContainer}>
         <View style={styles.line} />
         <Text style={styles.orText}>OR</Text>
         <View style={styles.line} />
       </View>
-
       <TouchableOpacity style={styles.googleBtn} onPress={GoogleLogin}>
-        <Image
-          source={require('../assets/google.png')}
-          style={styles.googleIcon}
-        />
+        <Image source={require('../assets/google.png')} style={styles.googleIcon} />
         <Text style={styles.googleBtnText}>Continue with Google</Text>
       </TouchableOpacity>
     </View>
